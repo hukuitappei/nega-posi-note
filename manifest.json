@@ -1,0 +1,24 @@
+{
+  "name": "Daily Log",
+  "short_name": "DailyLog",
+  "description": "毎日のポジ・ネガを記録するアプリ",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0e0e12",
+  "theme_color": "#818cf8",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
