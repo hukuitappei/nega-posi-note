@@ -1,6 +1,7 @@
 import { SignJWT, importJWK } from 'jose';
 
 const JSON_HEADERS = { 'content-type': 'application/json; charset=utf-8' };
+const RETENTION_DAYS = 92; // 約3か月
 
 function corsHeaders(env, origin) {
   const allowOrigin = origin && origin.startsWith(env.APP_ORIGIN) ? origin : env.APP_ORIGIN;
@@ -95,6 +96,8 @@ async function handleUnsubscribe(req, env, origin) {
 }
 
 async function runScheduled(env) {
+  const now = Date.now();
+  const retentionMs = RETENTION_DAYS * 24 * 60 * 60 * 1000;
   let cursor;
   do {
     const page = await env.SUBSCRIPTIONS.list({ cursor, limit: 1000 });
@@ -104,6 +107,11 @@ async function runScheduled(env) {
       if (!raw) continue;
       try {
         const saved = JSON.parse(raw);
+        const ts = Date.parse(saved.updatedAt || saved.createdAt || '');
+        if (!Number.isNaN(ts) && now - ts > retentionMs) {
+          await env.SUBSCRIPTIONS.delete(item.name);
+          continue;
+        }
         const status = await sendWebPush(env, saved.subscription);
         if (status === 404 || status === 410) {
           await env.SUBSCRIPTIONS.delete(item.name);

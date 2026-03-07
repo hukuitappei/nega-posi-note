@@ -1,6 +1,7 @@
 # Daily Log Reminder Worker
 
 Cloudflare Workers + Cron + Web Push で、`nega-posi-note` に毎日 `21:00 JST` の通知を送るためのWorkerです。
+サーバ側データは保持期間を設け、**3か月（約92日）超は自動削除**します。
 
 ## 1. 事前準備
 
@@ -37,3 +38,8 @@ npx wrangler deploy
 - Worker URL: `https://<your-worker>.workers.dev`
 
 通知有効化ボタンを押すと、`/vapid-public-key` 取得 -> Push購読 -> `/subscribe` 登録が実行されます。
+
+## データ保持ポリシー
+
+- サーバ保持データは3か月（約92日）を超えた時点でCron実行時に削除
+- markdownなどの外部保存物は対象外（サーバ側のみ削除）
