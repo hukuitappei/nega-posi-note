@@ -1,0 +1,14 @@
+{
+  "name": "daily-log",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^2.0.0",
+    "jsdom": "^28.1.0",
+    "vitest": "^2.0.0"
+  }
+}
