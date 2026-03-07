@@ -1,4 +1,4 @@
-const CACHE_NAME = 'daily-log-v3';
+const CACHE_NAME = 'daily-log-v4';
 const FONT_CACHE = 'daily-log-fonts-v1';
 
 const ASSETS = [
