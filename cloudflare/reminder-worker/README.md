@@ -1,0 +1,39 @@
+# Daily Log Reminder Worker
+
+Cloudflare Workers + Cron + Web Push で、`nega-posi-note` に毎日 `21:00 JST` の通知を送るためのWorkerです。
+
+## 1. 事前準備
+
+1. CloudflareでKVを作成（例: `daily-log-subscriptions`）
+2. `wrangler.toml` の `kv_namespaces.id` / `preview_id` を置換
+3. VAPID鍵を作成（公開鍵/秘密鍵）
+4. 秘密鍵はJWK形式で Secret に設定
+
+## 2. Secret設定
+
+```bash
+cd cloudflare/reminder-worker
+npx wrangler secret put VAPID_PUBLIC_KEY
+npx wrangler secret put VAPID_PRIVATE_JWK
+```
+
+`VAPID_PRIVATE_JWK` は次の形のJSON文字列:
+
+```json
+{"kty":"EC","crv":"P-256","x":"...","y":"...","d":"..."}
+```
+
+## 3. デプロイ
+
+```bash
+npm install
+npx wrangler deploy
+```
+
+## 4. フロント設定
+
+`nega-posi-note` の設定画面で以下を入力:
+
+- Worker URL: `https://<your-worker>.workers.dev`
+
+通知有効化ボタンを押すと、`/vapid-public-key` 取得 -> Push購読 -> `/subscribe` 登録が実行されます。

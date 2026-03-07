@@ -1,4 +1,4 @@
-const CACHE_NAME = 'daily-log-v4';
+const CACHE_NAME = 'daily-log-v5';
 const FONT_CACHE = 'daily-log-fonts-v1';
 
 const ASSETS = [
@@ -40,6 +40,39 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
+});
+
+self.addEventListener('push', (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    payload = {};
+  }
+
+  const title = payload.title || 'Daily Log';
+  const options = {
+    body: payload.body || '今日の記録タイムです（21:00）',
+    icon: './icon-192.png',
+    badge: './icon-192.png',
+    tag: 'daily-log-reminder',
+    data: { url: './' },
+    renotify: true,
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = event.notification?.data?.url || './';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if (client.url.includes(self.location.origin)) return client.focus();
+      }
+      return self.clients.openWindow(targetUrl);
+    })
+  );
 });
 
 self.addEventListener('fetch', (event) => {

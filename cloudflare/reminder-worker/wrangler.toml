@@ -1,0 +1,20 @@
+name = "daily-log-reminder"
+main = "src/index.js"
+compatibility_date = "2026-03-01"
+
+[triggers]
+crons = ["0 12 * * *"] # 21:00 JST
+
+[[kv_namespaces]]
+binding = "SUBSCRIPTIONS"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+preview_id = "REPLACE_WITH_KV_NAMESPACE_PREVIEW_ID"
+
+[vars]
+SUBJECT = "mailto:you@example.com"
+# GitHub Pages URL (CORS allow-list)
+APP_ORIGIN = "https://hukuitappei.github.io"
+
+# `wrangler secret put` で設定
+# VAPID_PUBLIC_KEY      (base64url, uncompressed public key)
+# VAPID_PRIVATE_JWK     (JSON string: {"kty":"EC","crv":"P-256","x":"...","y":"...","d":"..."})

@@ -231,6 +231,10 @@ svg.line-chart{width:100%;overflow:visible;}
 .set-sec{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px;}
 .set-title{font-size:11px;font-family:'DM Mono',monospace;letter-spacing:2px;color:var(--muted);margin-bottom:12px;}
 .danger-btn{width:100%;padding:12px;background:rgba(239,68,68,.1);border:1px solid var(--danger);border-radius:10px;color:var(--danger);cursor:pointer;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:1px;margin-bottom:8px;}
+.push-input{width:100%;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:10px;color:var(--text);font-size:12px;font-family:'DM Mono',monospace;margin-bottom:8px;}
+.push-input:focus{outline:none;border-color:var(--acc);}
+.push-btn{width:100%;padding:11px;background:rgba(129,140,248,.12);border:1px solid var(--acc);border-radius:10px;color:var(--acc);cursor:pointer;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:1px;margin-bottom:8px;}
+.push-status{font-size:12px;color:var(--dim);line-height:1.6;min-height:20px;}
 
 /* Modals */
 .mo{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:300;display:none;align-items:flex-end;justify-content:center;}
@@ -396,6 +400,13 @@ svg.line-chart{width:100%;overflow:visible;}
 <!-- SETTINGS -->
 <div class="scr" id="scr-settings">
   <div class="set-sec">
+    <div class="set-title">DAILY REMINDER (21:00 JST)</div>
+    <input id="pushWorkerUrl" class="push-input" type="url" placeholder="https://your-worker.workers.dev">
+    <button class="push-btn" id="pushEnableBtn" type="button">通知を有効化</button>
+    <button class="push-btn" id="pushDisableBtn" type="button" style="border-color:var(--border);color:var(--muted);background:rgba(100,116,139,.08)">通知を停止</button>
+    <div class="push-status" id="pushStatus"></div>
+  </div>
+  <div class="set-sec">
     <div class="set-title">DATA MANAGEMENT</div>
     <button class="danger-btn" onclick="confirmDelete('day')">🗑 今日の記録を削除</button>
     <button class="danger-btn" onclick="confirmDelete('all')">⚠ 全データをリセット</button>
@@ -439,6 +450,7 @@ svg.line-chart{width:100%;overflow:visible;}
 const PRESETS = ['仕事','プライベート','健康','学び','趣味'];
 const WDAYS = ['日','月','火','水','木','金','土'];
 const SK = 'daily_log_v3';
+const PUSH_WORKER_URL_KEY = 'push_worker_url';
 const EMO_COLORS = {
   '喜び':'#fbbf24','安心':'#34d399','充実':'#818cf8',
   '不安':'#fb923c','怒り':'#f87171','疲労':'#94a3b8','悲しみ':'#60a5fa'
@@ -1089,12 +1101,129 @@ function renderPattern(){
     </div>`;
 }
 
+function b64UrlToUint8Array(base64Url) {
+  const pad = '='.repeat((4 - (base64Url.length % 4)) % 4);
+  const b64 = (base64Url + pad).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(b64);
+  const out = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+  return out;
+}
+
+function normalizeWorkerUrl(url) {
+  return String(url || '').trim().replace(/\/+$/, '');
+}
+
+function setPushStatus(msg, isError=false) {
+  const el = document.getElementById('pushStatus');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = isError ? 'var(--danger)' : 'var(--dim)';
+}
+
+async function subscribeReminder() {
+  try {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      setPushStatus('このブラウザはPush通知に未対応です', true);
+      return;
+    }
+    const urlInput = document.getElementById('pushWorkerUrl');
+    const workerBase = normalizeWorkerUrl(urlInput.value);
+    if (!workerBase) {
+      setPushStatus('Worker URL を入力してください', true);
+      return;
+    }
+
+    const vapidRes = await fetch(`${workerBase}/vapid-public-key`);
+    if (!vapidRes.ok) throw new Error('VAPID公開鍵の取得に失敗しました');
+    const { publicKey } = await vapidRes.json();
+    if (!publicKey) throw new Error('VAPID公開鍵が未設定です');
+
+    const perm = Notification.permission === 'granted'
+      ? 'granted'
+      : await Notification.requestPermission();
+    if (perm !== 'granted') {
+      setPushStatus('通知が許可されていません', true);
+      return;
+    }
+
+    const reg = await navigator.serviceWorker.ready;
+    const existing = await reg.pushManager.getSubscription();
+    if (existing) await existing.unsubscribe();
+
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: b64UrlToUint8Array(publicKey),
+    });
+
+    const res = await fetch(`${workerBase}/subscribe`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        subscription: sub,
+        timezone: 'Asia/Tokyo',
+        hour: 21,
+        minute: 0,
+      }),
+    });
+    if (!res.ok) throw new Error('サーバーへの購読登録に失敗しました');
+
+    localStorage.setItem(PUSH_WORKER_URL_KEY, workerBase);
+    setPushStatus('毎日21:00の通知を有効化しました');
+  } catch (err) {
+    setPushStatus(err.message || '通知登録に失敗しました', true);
+  }
+}
+
+async function unsubscribeReminder() {
+  try {
+    const workerBase = normalizeWorkerUrl(document.getElementById('pushWorkerUrl').value);
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+
+    if (workerBase && sub) {
+      await fetch(`${workerBase}/unsubscribe`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ subscription: sub }),
+      });
+    }
+
+    if (sub) await sub.unsubscribe();
+    setPushStatus('通知を停止しました');
+  } catch {
+    setPushStatus('通知停止に失敗しました', true);
+  }
+}
+
+function initPushSettings() {
+  const input = document.getElementById('pushWorkerUrl');
+  const enableBtn = document.getElementById('pushEnableBtn');
+  const disableBtn = document.getElementById('pushDisableBtn');
+  if (!input || !enableBtn || !disableBtn) return;
+
+  input.value = localStorage.getItem(PUSH_WORKER_URL_KEY) || '';
+  enableBtn.addEventListener('click', subscribeReminder);
+  disableBtn.addEventListener('click', unsubscribeReminder);
+
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    setPushStatus('この端末はPush通知を利用できません', true);
+    enableBtn.disabled = true;
+    disableBtn.disabled = true;
+  }
+}
+
 // ===== PWA =====
 if('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
-    const reg = await navigator.serviceWorker.register('./sw.js?v=5', { updateViaCache: 'none' });
+    const reg = await navigator.serviceWorker.register('./sw.js?v=6', { updateViaCache: 'none' });
     reg.update();
+    initPushSettings();
   });
+} else {
+  window.addEventListener('load', initPushSettings);
 }
 let dp;
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();dp=e;document.getElementById('installBanner').style.display='flex';});
