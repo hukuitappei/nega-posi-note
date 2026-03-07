@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "vapid:gen": "node scripts/gen-vapid.mjs"
   },
   "dependencies": {
     "jose": "^5.9.6"

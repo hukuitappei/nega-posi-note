@@ -10,6 +10,23 @@ Cloudflare Workers + Cron + Web Push で、`nega-posi-note` に毎日 `21:00 JST
 3. VAPID鍵を作成（公開鍵/秘密鍵）
 4. 秘密鍵はJWK形式で Secret に設定
 
+### KV作成コマンド
+
+```bash
+npx wrangler kv namespace create SUBSCRIPTIONS
+npx wrangler kv namespace create SUBSCRIPTIONS --preview
+```
+
+出力されたIDを `wrangler.toml` に設定します。
+
+### VAPID鍵作成コマンド
+
+```bash
+npm run vapid:gen
+```
+
+出力された `VAPID_PUBLIC_KEY` と `VAPID_PRIVATE_JWK` を控えてください（Gitにコミットしない）。
+
 ## 2. Secret設定
 
 ```bash
